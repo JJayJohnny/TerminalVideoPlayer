@@ -25,10 +25,10 @@ STYLES = [Style.DIM, Style.NORMAL, Style.BRIGHT]
 
 MIN_DISTANCE = math.sqrt(255**2 * 3)
 
-def createASCII(image: Image, columns: int = 100) -> str:
+def createASCII(image: Image, columns: int = 100, rows: int = 50) -> str:
     image = ImageEnhance.Contrast(image).enhance(1.5)
     image = ImageEnhance.Sharpness(image).enhance(1.5)
-    image.thumbnail((columns, columns))
+    image.thumbnail((columns, rows))
     width, height = image.size
     print(f'Width: {width} height: {height}')
     grayScale = image.convert("L")

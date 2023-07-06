@@ -1,11 +1,12 @@
-from colorama import Fore
 import sys
 from PIL import Image
 from createASCII import createASCII
+import shutil
 
 if __name__ == '__main__':
     image = Image.open(sys.argv[1])
-    ascii = createASCII(image, 100)
+    termSize = shutil.get_terminal_size()
+    ascii = createASCII(image, termSize.columns, termSize.lines)
     f = open('wynik.txt', 'w')
     f.write(ascii)
     f.close()

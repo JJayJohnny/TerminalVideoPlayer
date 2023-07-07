@@ -26,11 +26,11 @@ STYLES = [Style.DIM, Style.NORMAL, Style.BRIGHT]
 MIN_DISTANCE = math.sqrt(255**2 * 3)
 
 def createASCII(image: Image, columns: int = 100, rows: int = 50) -> str:
-    image = ImageEnhance.Contrast(image).enhance(1.5)
-    image = ImageEnhance.Sharpness(image).enhance(1.5)
+    # image = ImageEnhance.Contrast(image).enhance(1.5)
+    # image = ImageEnhance.Sharpness(image).enhance(1.5)
     image.thumbnail((columns, rows))
     width, height = image.size
-    print(f'Width: {width} height: {height}')
+    # print(f'Width: {width} height: {height}')
     grayScale = image.convert("L")
     # grayScale.save('gray.jpg')
     ascii = []
@@ -43,8 +43,8 @@ def createASCII(image: Image, columns: int = 100, rows: int = 50) -> str:
             srgb = [(v/255.0)**2.2 for v in pixel]
             char = CHARS_BY_DENSITY[int(brightness*(len(CHARS_BY_DENSITY)-1))]
             color = findColor(srgb, brightness)
-            style = STYLES[int(brightness*(len(STYLES)-1))]
-            final = color + char + Style.RESET_ALL
+            # style = STYLES[int(brightness*(len(STYLES)-1))]
+            final = color + char + char
             line += final
         ascii.append(line)
     

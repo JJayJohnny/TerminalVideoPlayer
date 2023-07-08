@@ -15,10 +15,6 @@ COLORS = {
     (1, 1, 1): Fore.WHITE,
 }
 
-# COLORS = [
-#     [[(v/255.0) ** 2.2 for v in color[0]], color[1]]for color in COLORS
-# ]
-
 STYLES = [Style.DIM, Style.NORMAL, Style.BRIGHT]
 
 MIN_DISTANCE = math.sqrt(255**2 * 3)
@@ -36,10 +32,8 @@ def createASCII(image: Image, columns: int = 100, rows: int = 50) -> str:
         for w in range(width):
             brightness = grayScale.getpixel((w, h)) / 255.0
             pixel = image.getpixel((w, h))
-            # srgb = [(v/255.0)**2.2 for v in pixel]
             char = CHARS_BY_DENSITY[int(brightness*(len(CHARS_BY_DENSITY)-1))]
             color = findColor(pixel)
-            # style = STYLES[int(brightness*(len(STYLES)-1))]
             final = color + char + char
             line += final
         ascii.append(line)
@@ -47,20 +41,6 @@ def createASCII(image: Image, columns: int = 100, rows: int = 50) -> str:
     return '\n'.join(ascii) + Style.RESET_ALL
 
 def findColor(pixel):
-    # minDist = 2.0
-    # index = 0
-
-    # for c in COLORS:
-    #     temp = [v * brightness for v in c[0]]
-    #     d = distance(pixel, temp)
-    #     if d < minDist:
-    #         minDist = d
-    #         index = COLORS.index(c)
-    # # if minDist < 0.2:
-    # #     return COLORS[index][1] + Style.BRIGHT
-    # # if minDist > 0.8:
-    # #     return COLORS[index][1] + Style.DIM
-    # return COLORS[index][1]
     color = (int(pixel[0]/128), int(pixel[1]/128), int(pixel[2]/128))
     return COLORS[color]
 

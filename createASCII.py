@@ -44,7 +44,7 @@ def createASCII(image: Image, columns: int = 100, rows: int = 50) -> str:
             line += final
         ascii.append(line)
     
-    return '\n'.join(ascii)
+    return '\n'.join(ascii) + Style.RESET_ALL
 
 def findColor(pixel):
     # minDist = 2.0

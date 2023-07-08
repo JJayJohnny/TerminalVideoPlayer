@@ -24,10 +24,9 @@ def play(src: str):
                 if FPS:
                     start = time.time()
                 imageData = frame.to_image()
-                # image = Image.open(io.BytesIO(imageData))
                 termSize = shutil.get_terminal_size()
                 ascii = createASCII(imageData, termSize.columns, termSize.lines)
-                os.system('clear')
+                print('ESC [ 1;1 H')
                 print(ascii)
                 if FPS:
                     stop = time.time()

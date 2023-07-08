@@ -1,6 +1,5 @@
 import av
 from createASCII import createASCII
-import os
 import shutil
 import time
 

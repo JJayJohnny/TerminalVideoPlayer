@@ -2,6 +2,7 @@ import av
 from createASCII import createASCII
 import shutil
 import time
+from colorama import Cursor
 
 FPS = True
 
@@ -25,11 +26,11 @@ def play(src: str):
                 imageData = frame.to_image()
                 termSize = shutil.get_terminal_size()
                 ascii = createASCII(imageData, termSize.columns, termSize.lines)
-                print('ESC [ 1;1 H')
+                print(Cursor.POS(1,1))
                 print(ascii)
                 if FPS:
                     stop = time.time()
-                print(f"Frame time: {stop-start} FPS: {1.0/(stop-start)}")
+                print(Cursor.POS(1,1) + f"Frame time: {stop-start} FPS: {1.0/(stop-start)}")
 
                 
 

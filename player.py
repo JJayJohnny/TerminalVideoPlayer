@@ -9,8 +9,6 @@ import os
 
 FPS = True
 
-maxFPS = 30
-
 def play(src: str):
     frameQueue = Queue()
     asciiQueue = Queue()
@@ -18,11 +16,11 @@ def play(src: str):
     decoder = Thread(target=decode, args=(src, frameQueue))
     decoder.start()
 
-    transformers = [Thread(target=transform, args=(frameQueue, asciiQueue)) for i in range(10)]
+    transformers = [Thread(target=transform, args=(frameQueue, asciiQueue)) for i in range(1)]
     for transformer in transformers:
         transformer.start()
 
-    time.sleep(2)
+    # time.sleep(2)
     displayer = Thread(target=display, args=(asciiQueue,))
     displayer.start()
 
@@ -32,30 +30,30 @@ def play(src: str):
     displayer.join()
 
 
-def transform(frameQueue: Queue, asciiQueue: Queue):
-    asciiQueue.put(frameQueue.get())
+def transform(frameQueue: Queue, asciiQueue: Queue):   
     while True:
+        asciiQueue.put(frameQueue.get())
         imageData = frameQueue.get()
         termSize = shutil.get_terminal_size()
-        ascii = createASCII(imageData, termSize.columns, termSize.lines-1)
+        ascii = createASCII(imageData, termSize.columns, termSize.lines-2)
         asciiQueue.put(ascii)
 
 def display(asciiQueue: Queue):
-    maxFPS = asciiQueue.get()
-    frameTime = 1.0/maxFPS
+    timeZero = time.time()
     stop = time.time()
     os.system('clear')
     while True:
+        displayTime = asciiQueue.get()
         if FPS:
             start = time.time()
         ascii = asciiQueue.get()
-        if (time.time() - stop) < frameTime:
-            time.sleep(max(frameTime - (time.time()-stop), 0))
-        print(Cursor.POS(1,1))
-        print(ascii)
+        if (time.time() - timeZero) < displayTime:
+            time.sleep(max(displayTime - (time.time()-timeZero), 0))
+        print(Cursor.POS(1,1) + ascii)
         if FPS:
             stop = time.time()
         print(Cursor.POS(1,1) + f"Frame time: {stop-start} FPS: {1.0/(stop-start)}")
+        print(Cursor.POS(1,2) + str(round(displayTime, 2)))
 
 
 def decode(src: str, frameQueue: Queue):
@@ -63,10 +61,8 @@ def decode(src: str, frameQueue: Queue):
 
     vStream = video.streams.video[0]
     vStream.codec_context.skip_frame = "DEFAULT"
-    vStream.thread_count = 5
-    maxFPS = vStream.average_rate
-    print(maxFPS)
-    frameQueue.put(maxFPS)
+    vStream.thread_type = 'AUTO'
+    timeBase = vStream.time_base
 
     for packet in video.demux(vStream):
         if packet.dts is None:
@@ -76,6 +72,7 @@ def decode(src: str, frameQueue: Queue):
 
         for frame in packet.decode():
             if type == 'video':
+                frameQueue.put(float(frame.pts*timeBase))
                 frameQueue.put(frame.to_image())
              
     # for frame in container.decode(video=0):

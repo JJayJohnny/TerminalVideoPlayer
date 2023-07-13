@@ -3,17 +3,21 @@ from createASCII import createASCII
 import shutil
 import time
 from threading import Thread
-from queue import Queue
+from queue import Queue, Empty
 from colorama import Cursor
 import os
+import numpy as np
+import sounddevice as sd
 
 FPS = True
 
 def play(src: str):
     frameQueue = Queue()
     asciiQueue = Queue()
+    audioQueue = Queue()
+    decodedAudio = Queue()
 
-    decoder = Thread(target=decode, args=(src, frameQueue))
+    decoder = Thread(target=decode, args=(src, frameQueue, decodedAudio, audioQueue))
     decoder.start()
 
     transformers = [Thread(target=transform, args=(frameQueue, asciiQueue)) for i in range(1)]
@@ -23,10 +27,14 @@ def play(src: str):
     displayer = Thread(target=display, args=(asciiQueue,))
     displayer.start()
 
+    audioPlayer = Thread(target=playAudio, args=(audioQueue, decodedAudio))
+    audioPlayer.start()
+
     decoder.join()
     for transformer in transformers:
         transformer.join()
     displayer.join()
+    audioPlayer.join()
 
 
 def transform(frameQueue: Queue, asciiQueue: Queue):   
@@ -60,7 +68,7 @@ def display(asciiQueue: Queue):
         print(Cursor.POS(1,2) + str(round(displayTime, 2)))
 
 
-def decode(src: str, frameQueue: Queue):
+def decode(src: str, frameQueue: Queue, decodedAudio: Queue, audioQueue: Queue):
     video = av.open(src)
 
     vStream = video.streams.video[0]
@@ -68,17 +76,45 @@ def decode(src: str, frameQueue: Queue):
     vStream.thread_type = 'AUTO'
     timeBase = vStream.time_base
 
-    for packet in video.demux(vStream):
-        if packet.dts is None:
-            continue
+    aStream = video.streams.audio[0]
+    sample_rate = aStream.sample_rate
+    channels = aStream.channels
+    frameSize = aStream.frame_size
+    audioTimeBase = aStream.time_base
 
-        type = packet.stream.type
+    def callback(outdata, frames, time, status):
+        if status:
+            print(status)
+        try:
+            data = audioQueue.get_nowait()
+            outdata[:] = data
+        except Empty as e:
+            data = np.zeros((frameSize, channels), dtype=np.float32)
+            outdata[:] = data
+            
+    with sd.OutputStream(samplerate=sample_rate, channels=channels, callback=callback, blocksize=frameSize):
+        for packet in video.demux(vStream, aStream):
+            if packet.dts is None:
+                continue
 
-        for frame in packet.decode():
-            if type == 'video':
-                frameQueue.put(float(frame.pts*timeBase))
-                frameQueue.put(frame.to_image())
+            type = packet.stream.type
+            for frame in packet.decode():
+                if type == 'video':
+                    frameQueue.put(float(frame.pts*timeBase))
+                    frameQueue.put(frame.to_image())
+                if type == 'audio':
+                    decodedAudio.put(float(frame.pts*audioTimeBase))
+                    decodedAudio.put(frame.to_ndarray().T)
     frameQueue.put('END')
+    decodedAudio.put('END')
              
-    # for frame in container.decode(video=0):
-    #     frame.to_image().save("frame.jpg", quality=50)
+def playAudio(audioQueue, decodedAudio):
+    timeZero = time.time()
+    while True:
+        timeStamp = decodedAudio.get()
+        if timeStamp == 'END':
+            break
+        audioFrame = decodedAudio.get()
+        if (time.time() - timeZero) < timeStamp:
+            time.sleep(max(timeStamp - (time.time() - timeZero), 0))
+        audioQueue.put_nowait(audioFrame)

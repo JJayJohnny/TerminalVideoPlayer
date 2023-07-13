@@ -24,8 +24,6 @@ def play(src: str):
 
         type = packet.stream.type
 
-        stop = time.time()
-
         for frame in packet.decode():
             if type == 'video':
                 if FPS:
@@ -36,9 +34,9 @@ def play(src: str):
                 if (time.time() - timeZero) < frame.pts*timeBase:
                     time.sleep(max(frame.pts*timeBase - (time.time() - timeZero), 0))
                 print(Cursor.POS(1,1))
-                print(ascii)
-                stop = time.time()
+                print(ascii)   
                 if FPS:
+                    stop = time.time()
                     print(Cursor.POS(1,1) + f"Frame time: {stop-start} FPS: {1.0/(stop-start)}")
                     print(Cursor.POS(1,2) + str(round(float(frame.pts*timeBase), 2)))
 

@@ -32,7 +32,7 @@ def createASCII(image: Image, columns: int = 100, rows: int = 50) -> str:
         for w in range(width):
             brightness = grayScale.getpixel((w, h)) / 255.0
             pixel = image.getpixel((w, h))
-            char = CHARS_BY_DENSITY[int(brightness*(len(CHARS_BY_DENSITY)-1))]
+            char = CHARS_BY_DENSITY[int(brightness*(len(CHARS_BY_DENSITY)-2))]
             color = findColor(pixel)
             final = color + char + char
             line += final

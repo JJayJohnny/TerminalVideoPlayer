@@ -3,6 +3,7 @@ from createASCII import createASCII
 import shutil
 import time
 from colorama import Cursor
+import os
 
 FPS = True
 
@@ -11,7 +12,11 @@ def play(src: str):
 
     vStream = video.streams.video[0]
     vStream.codec_context.skip_frame = "DEFAULT"
-    vStream.thread_count = 10
+    vStream.thread_type = 'AUTO'
+    timeBase = vStream.time_base
+    os.system('clear')
+
+    timeZero = time.time()
 
     for packet in video.demux(vStream):
         if packet.dts is None:
@@ -19,18 +24,23 @@ def play(src: str):
 
         type = packet.stream.type
 
+        stop = time.time()
+
         for frame in packet.decode():
             if type == 'video':
                 if FPS:
                     start = time.time()
                 imageData = frame.to_image()
                 termSize = shutil.get_terminal_size()
-                ascii = createASCII(imageData, termSize.columns, termSize.lines)
+                ascii = createASCII(imageData, termSize.columns, termSize.lines-2)
+                if (time.time() - timeZero) < frame.pts*timeBase:
+                    time.sleep(max(frame.pts*timeBase - (time.time() - timeZero), 0))
                 print(Cursor.POS(1,1))
                 print(ascii)
+                stop = time.time()
                 if FPS:
-                    stop = time.time()
-                print(Cursor.POS(1,1) + f"Frame time: {stop-start} FPS: {1.0/(stop-start)}")
+                    print(Cursor.POS(1,1) + f"Frame time: {stop-start} FPS: {1.0/(stop-start)}")
+                    print(Cursor.POS(1,2) + str(round(float(frame.pts*timeBase), 2)))
 
                 
 

@@ -27,7 +27,7 @@ def createASCII(image: Image, columns: int = 100, rows: int = 50) -> str:
     image = ImageEnhance.Contrast(image).enhance(1.5)
     image = ImageEnhance.Sharpness(image).enhance(1.5)
     grayScale = image.convert("L")
-    ascii = [''] * height
+    ascii = []
 
     # with ThreadPoolExecutor(10) as executor:
     #      futures = [executor.submit(processLine, image, grayScale, width, h) for h in range(height)]

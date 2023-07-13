@@ -35,7 +35,7 @@ def transform(frameQueue: Queue, asciiQueue: Queue):
         asciiQueue.put(frameQueue.get())
         imageData = frameQueue.get()
         termSize = shutil.get_terminal_size()
-        ascii = createASCII(imageData, termSize.columns, termSize.lines-2)
+        ascii = createASCII(imageData, termSize.columns, termSize.lines-1)
         asciiQueue.put(ascii)
 
 def display(asciiQueue: Queue):
@@ -52,7 +52,7 @@ def display(asciiQueue: Queue):
         print(Cursor.POS(1,1) + ascii)
         if FPS:
             stop = time.time()
-        print(Cursor.POS(1,1) + f"Frame time: {stop-start} FPS: {1.0/(stop-start)}")
+        print(Cursor.POS(1,1) + f"Frame time: {stop-start} FPS: {int(1.0/(stop-start))}")
         print(Cursor.POS(1,2) + str(round(displayTime, 2)))
 
 

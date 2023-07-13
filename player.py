@@ -7,6 +7,7 @@ import os
 import numpy as np
 import sounddevice as sd
 import queue
+from threading import Thread
 
 FPS = True
 
@@ -24,6 +25,7 @@ def play(src: str):
     frameSize = aStream.frame_size
     audioTimeBase = aStream.time_base
     audioQueue = queue.Queue()
+    decodedAudioQueue = queue.Queue()
 
     def callback(outdata, frames, time, status):
         if status:
@@ -38,6 +40,9 @@ def play(src: str):
     os.system('clear')
 
     timeZero = time.time()
+
+    audioThread = Thread(target=audioPlayer, args=(audioQueue, decodedAudioQueue, timeZero))
+    audioThread.start()
 
     with sd.OutputStream(samplerate=sample_rate, channels=channels, callback=callback, blocksize=frameSize):
         for packet in video.demux(vStream, aStream):
@@ -62,6 +67,18 @@ def play(src: str):
                         print(Cursor.POS(1,1) + f"Frame time: {stop-start} FPS: {1.0/(stop-start)}")
                         print(Cursor.POS(1,2) + str(round(float(frame.pts*timeBase), 2)))
                 if type == 'audio':
-                    if (time.time() - timeZero) < frame.pts*audioTimeBase:
-                        time.sleep(max(frame.pts*audioTimeBase - (time.time() - timeZero), 0))
-                    audioQueue.put_nowait(frame.to_ndarray().T)
+                    decodedAudioQueue.put(frame.pts*audioTimeBase)
+                    decodedAudioQueue.put(frame.to_ndarray().T)
+    decodedAudioQueue.put('END')
+    audioThread.join()
+
+def audioPlayer(audioQueue, decodedAudioQueue, timeZero):
+    while True:
+        timeStamp = decodedAudioQueue.get()
+        if timeStamp == 'END':
+            break
+        audioFrame = decodedAudioQueue.get()
+        if (time.time() - timeZero) < timeStamp:
+            time.sleep(max(timeStamp - (time.time() - timeZero), 0))
+        audioQueue.put_nowait(audioFrame)
+

@@ -20,7 +20,6 @@ def play(src: str):
     for transformer in transformers:
         transformer.start()
 
-    # time.sleep(2)
     displayer = Thread(target=display, args=(asciiQueue,))
     displayer.start()
 
@@ -32,7 +31,10 @@ def play(src: str):
 
 def transform(frameQueue: Queue, asciiQueue: Queue):   
     while True:
-        asciiQueue.put(frameQueue.get())
+        temp = frameQueue.get()
+        asciiQueue.put(temp)
+        if temp == 'END':
+            break
         imageData = frameQueue.get()
         termSize = shutil.get_terminal_size()
         ascii = createASCII(imageData, termSize.columns, termSize.lines-1)
@@ -44,6 +46,8 @@ def display(asciiQueue: Queue):
     os.system('clear')
     while True:
         displayTime = asciiQueue.get()
+        if displayTime == 'END':
+            break
         if FPS:
             start = time.time()
         ascii = asciiQueue.get()
@@ -74,6 +78,7 @@ def decode(src: str, frameQueue: Queue):
             if type == 'video':
                 frameQueue.put(float(frame.pts*timeBase))
                 frameQueue.put(frame.to_image())
+    frameQueue.put('END')
              
     # for frame in container.decode(video=0):
     #     frame.to_image().save("frame.jpg", quality=50)

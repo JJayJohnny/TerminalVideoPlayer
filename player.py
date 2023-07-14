@@ -11,88 +11,83 @@ import sounddevice as sd
 
 FPS = True
 
-def play(src: str):
-    frameQueue = Queue()
-    asciiQueue = Queue()
-    audioQueue = Queue()
-    decodedAudio = Queue()
+class Player:
+    def __init__(self, src: str):
+        self.frameQueue = Queue()
+        self.asciiQueue = Queue()
+        self.decodedAudio = Queue()
 
-    decoder = Thread(target=decode, args=(src, frameQueue, decodedAudio, audioQueue))
-    decoder.start()
+        decoder = Thread(target=self.decode, args=(src,))
+        decoder.start()
 
-    transformers = [Thread(target=transform, args=(frameQueue, asciiQueue)) for i in range(1)]
-    for transformer in transformers:
-        transformer.start()
+        transformers = [Thread(target=self.transform) for i in range(1)]
+        for transformer in transformers:
+            transformer.start()
 
-    displayer = Thread(target=display, args=(asciiQueue,))
-    displayer.start()
+        displayer = Thread(target=self.display)
+        displayer.start()
 
-    audioPlayer = Thread(target=playAudio, args=(audioQueue, decodedAudio))
-    audioPlayer.start()
+        audioPlayer = Thread(target=self.playAudio)
+        audioPlayer.start()
 
-    decoder.join()
-    for transformer in transformers:
-        transformer.join()
-    displayer.join()
-    audioPlayer.join()
-
-
-def transform(frameQueue: Queue, asciiQueue: Queue):   
-    while True:
-        temp = frameQueue.get()
-        asciiQueue.put(temp)
-        if temp == 'END':
-            break
-        imageData = frameQueue.get()
-        termSize = shutil.get_terminal_size()
-        ascii = createASCII(imageData, termSize.columns, termSize.lines-1)
-        asciiQueue.put(ascii)
-
-def display(asciiQueue: Queue):
-    timeZero = time.time()
-    stop = time.time()
-    os.system('clear')
-    while True:
-        displayTime = asciiQueue.get()
-        if displayTime == 'END':
-            break
-        if FPS:
-            start = time.time()
-        ascii = asciiQueue.get()
-        if (time.time() - timeZero) < displayTime:
-            time.sleep(max(displayTime - (time.time()-timeZero), 0))
-        print(Cursor.POS(1,1) + ascii)
-        if FPS:
-            stop = time.time()
-        print(Cursor.POS(1,1) + f"Frame time: {stop-start} FPS: {int(1.0/(stop-start))}")
-        print(Cursor.POS(1,2) + str(round(displayTime, 2)))
+        decoder.join()
+        for transformer in transformers:
+            transformer.join()
+        displayer.join()
+        audioPlayer.join()
 
 
-def decode(src: str, frameQueue: Queue, decodedAudio: Queue, audioQueue: Queue):
-    video = av.open(src)
+    def transform(self):   
+        while True:
+            temp = self.frameQueue.get()
+            self.asciiQueue.put(temp)
+            if temp == 'END':
+                break
+            imageData = self.frameQueue.get()
+            termSize = shutil.get_terminal_size()
+            ascii = createASCII(imageData, termSize.columns, termSize.lines-1)
+            self.asciiQueue.put(ascii)
 
-    vStream = video.streams.video[0]
-    vStream.codec_context.skip_frame = "DEFAULT"
-    vStream.thread_type = 'AUTO'
-    timeBase = vStream.time_base
+    def display(self):
+        if self.asciiQueue.get() != 'START':
+            return
+        
+        stop = time.time()
+        os.system('clear')
+        while True:
+            displayTime = self.asciiQueue.get()
+            if displayTime == 'END':
+                break
+            if FPS:
+                start = time.time()
+            ascii = self.asciiQueue.get()
+            if (time.time() - self.timeZero) < displayTime:
+                time.sleep(max(displayTime - (time.time()-self.timeZero), 0))
+            print(Cursor.POS(1,1) + ascii)
+            if FPS:
+                stop = time.time()
+            print(Cursor.POS(1,1) + f"Frame time: {stop-start} FPS: {int(1.0/(stop-start))}")
+            print(Cursor.POS(1,2) + str(round(displayTime, 2)))
 
-    aStream = video.streams.audio[0]
-    sample_rate = aStream.sample_rate
-    channels = aStream.channels
-    frameSize = aStream.frame_size
-    audioTimeBase = aStream.time_base
 
-    def callback(outdata, frames, time, status):
-        if status:
-            print(status)
-        try:
-            data = audioQueue.get_nowait()
-            outdata[:] = data
-        except Empty as e:
-            data = np.zeros((frameSize, channels), dtype=np.float32)
-            outdata[:] = data
-            
-    with sd.OutputStream(samplerate=sample_rate, channels=channels, callback=callback, blocksize=frameSize):
+    def decode(self, src: str):
+        video = av.open(src)
+
+        vStream = video.streams.video[0]
+        vStream.codec_context.skip_frame = "DEFAULT"
+        vStream.thread_type = 'AUTO'
+        timeBase = vStream.time_base
+
+        aStream = video.streams.audio[0]
+        self.sample_rate = aStream.sample_rate
+        self.channels = aStream.channels
+        self.frameSize = aStream.frame_size
+        audioTimeBase = aStream.time_base
+
+        self.timeZero = time.time()
+        self.asciiQueue.put('START')
+        self.decodedAudio.put('START')
+                   
         for packet in video.demux(vStream, aStream):
             if packet.dts is None:
                 continue
@@ -100,21 +95,37 @@ def decode(src: str, frameQueue: Queue, decodedAudio: Queue, audioQueue: Queue):
             type = packet.stream.type
             for frame in packet.decode():
                 if type == 'video':
-                    frameQueue.put(float(frame.pts*timeBase))
-                    frameQueue.put(frame.to_image())
+                    self.frameQueue.put(float(frame.pts*timeBase))
+                    self.frameQueue.put(frame.to_image())
                 if type == 'audio':
-                    decodedAudio.put(float(frame.pts*audioTimeBase))
-                    decodedAudio.put(frame.to_ndarray().T)
-    frameQueue.put('END')
-    decodedAudio.put('END')
-             
-def playAudio(audioQueue, decodedAudio):
-    timeZero = time.time()
-    while True:
-        timeStamp = decodedAudio.get()
-        if timeStamp == 'END':
-            break
-        audioFrame = decodedAudio.get()
-        if (time.time() - timeZero) < timeStamp:
-            time.sleep(max(timeStamp - (time.time() - timeZero), 0))
-        audioQueue.put_nowait(audioFrame)
+                    self.decodedAudio.put(float(frame.pts*audioTimeBase))
+                    self.decodedAudio.put(frame.to_ndarray().T)
+        self.frameQueue.put('END')
+        self.decodedAudio.put('END')
+                
+    def playAudio(self):
+        audioQueue = Queue()
+
+        if self.decodedAudio.get() != 'START':
+            return
+        
+        def callback(outdata, frames, time, status):
+            if status:
+                print(status)
+            try:
+                data = audioQueue.get_nowait()
+                outdata[:] = data
+            except Empty as e:
+                data = np.zeros((self.frameSize, self.channels), dtype=np.float32)
+                outdata[:] = data
+
+        
+        with sd.OutputStream(samplerate=self.sample_rate, channels=self.channels, callback=callback, blocksize=self.frameSize):
+            while True:
+                timeStamp = self.decodedAudio.get()
+                if timeStamp == 'END':
+                    break
+                audioFrame = self.decodedAudio.get()
+                if (time.time() - self.timeZero) < timeStamp:
+                    time.sleep(max(timeStamp - (time.time() - self.timeZero), 0))
+                audioQueue.put_nowait(audioFrame)

@@ -8,9 +8,14 @@ from colorama import Cursor
 import os
 import numpy as np
 import sounddevice as sd
+from enum import Enum
 
 FPS = True
 SYNNCHRONIZE_EVERY = 10
+
+class Message(Enum):
+    START = 'START'
+    QUIT = 'QUIT'
 
 class Player:
     def __init__(self, src: str):
@@ -42,7 +47,7 @@ class Player:
     def transform(self):   
         while True:
             message = self.frameQueue.get()
-            if message == 'END':
+            if message == Message.QUIT:
                 self.asciiQueue.put(message)
                 break
             timeStamp, imageData = message
@@ -51,7 +56,7 @@ class Player:
             self.asciiQueue.put((timeStamp, ascii))
 
     def display(self):
-        if self.asciiQueue.get() != 'START':
+        if self.asciiQueue.get() != Message.START:
             return
         
         stop = time.time()
@@ -59,7 +64,7 @@ class Player:
         frameCounter = 0
         while True:
             message = self.asciiQueue.get()
-            if message == 'END':
+            if message == Message.QUIT:
                 break
             if FPS:
                 start = time.time()
@@ -91,8 +96,8 @@ class Player:
         audioTimeBase = aStream.time_base
 
         self.timeZero = time.time()
-        self.asciiQueue.put('START')
-        self.decodedAudio.put('START')
+        self.asciiQueue.put(Message.START)
+        self.decodedAudio.put(Message.START)
                    
         for packet in video.demux(vStream, aStream):
             if packet.dts is None:
@@ -104,14 +109,14 @@ class Player:
                     self.frameQueue.put((float(frame.pts*timeBase), frame.to_image()))
                 if type == 'audio':
                     self.decodedAudio.put((float(frame.pts*audioTimeBase), frame.to_ndarray().T))
-        self.frameQueue.put('END')
-        self.decodedAudio.put('END')
+        self.frameQueue.put(Message.QUIT)
+        self.decodedAudio.put(Message.QUIT)
                 
     def playAudio(self):
         audioQueue = Queue()
         correctionTime = 0.0
 
-        if self.decodedAudio.get() != 'START':
+        if self.decodedAudio.get() != Message.START:
             return
         
         def callback(outdata, frames, time, status):
@@ -128,7 +133,7 @@ class Player:
         with sd.OutputStream(samplerate=self.sample_rate, channels=self.channels, callback=callback, blocksize=self.frameSize):
             while True:
                 message = self.decodedAudio.get()
-                if message == 'END':
+                if message == Message.QUIT:
                     break
                 timeStamp, audioFrame = message
                 try:

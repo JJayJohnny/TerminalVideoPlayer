@@ -39,14 +39,14 @@ class Player:
 
     def transform(self):   
         while True:
-            temp = self.frameQueue.get()
-            self.asciiQueue.put(temp)
-            if temp == 'END':
+            message = self.frameQueue.get()
+            if message == 'END':
+                self.asciiQueue.put(message)
                 break
-            imageData = self.frameQueue.get()
+            timeStamp, imageData = message
             termSize = shutil.get_terminal_size()
             ascii = createASCII(imageData, termSize.columns, termSize.lines-1)
-            self.asciiQueue.put(ascii)
+            self.asciiQueue.put((timeStamp, ascii))
 
     def display(self):
         if self.asciiQueue.get() != 'START':
@@ -55,19 +55,19 @@ class Player:
         stop = time.time()
         os.system('clear')
         while True:
-            displayTime = self.asciiQueue.get()
-            if displayTime == 'END':
+            message = self.asciiQueue.get()
+            if message == 'END':
                 break
             if FPS:
                 start = time.time()
-            ascii = self.asciiQueue.get()
-            if (time.time() - self.timeZero) < displayTime:
-                time.sleep(max(displayTime - (time.time()-self.timeZero), 0))
+            timeStamp, ascii = message
+            if (time.time() - self.timeZero) < timeStamp:
+                time.sleep(max(timeStamp - (time.time()-self.timeZero), 0))
             print(Cursor.POS(1,1) + ascii)
             if FPS:
                 stop = time.time()
             print(Cursor.POS(1,1) + f"Frame time: {stop-start} FPS: {int(1.0/(stop-start))}")
-            print(Cursor.POS(1,2) + str(round(displayTime, 2)))
+            print(Cursor.POS(1,2) + str(round(timeStamp, 2)))
 
 
     def decode(self, src: str):
@@ -95,11 +95,11 @@ class Player:
             type = packet.stream.type
             for frame in packet.decode():
                 if type == 'video':
-                    self.frameQueue.put(float(frame.pts*timeBase))
-                    self.frameQueue.put(frame.to_image())
+                    self.frameQueue.put((float(frame.pts*timeBase), frame.to_image()))
+                    # self.frameQueue.put(frame.to_image())
                 if type == 'audio':
-                    self.decodedAudio.put(float(frame.pts*audioTimeBase))
-                    self.decodedAudio.put(frame.to_ndarray().T)
+                    self.decodedAudio.put((float(frame.pts*audioTimeBase), frame.to_ndarray().T))
+                    # self.decodedAudio.put(frame.to_ndarray().T)
         self.frameQueue.put('END')
         self.decodedAudio.put('END')
                 
@@ -122,10 +122,10 @@ class Player:
         
         with sd.OutputStream(samplerate=self.sample_rate, channels=self.channels, callback=callback, blocksize=self.frameSize):
             while True:
-                timeStamp = self.decodedAudio.get()
-                if timeStamp == 'END':
+                message = self.decodedAudio.get()
+                if message == 'END':
                     break
-                audioFrame = self.decodedAudio.get()
+                timeStamp, audioFrame = message
                 if (time.time() - self.timeZero) < timeStamp:
                     time.sleep(max(timeStamp - (time.time() - self.timeZero), 0))
                 audioQueue.put_nowait(audioFrame)

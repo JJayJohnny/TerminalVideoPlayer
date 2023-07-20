@@ -11,11 +11,12 @@ import sounddevice as sd
 from enum import Enum
 
 FPS = True
-SYNNCHRONIZE_EVERY = 10
+SECONDS_TO_BUFFER = 5
 
 class Message(Enum):
     START = 'START'
     QUIT = 'QUIT'
+    BUFFER = 'BUFFER'
 
 class Player:
     def __init__(self, src: str):
@@ -53,6 +54,13 @@ class Player:
             ascii = createASCII(imageData, termSize.columns, termSize.lines-1)
             self.asciiQueue.put((timeStamp, ascii))
 
+    def bufferFrames(self):
+        self.synchronizationQueue.put(Message.BUFFER)
+        bufferStart = time.time()
+        while self.asciiQueue.qsize() < self.averageFPS*SECONDS_TO_BUFFER and time.time()-bufferStart < SECONDS_TO_BUFFER:
+            time.sleep(0.1)
+        self.timeZero += time.time() - bufferStart
+
     def display(self):
         if self.asciiQueue.get() != Message.START:
             return
@@ -61,16 +69,21 @@ class Player:
         os.system('clear')
         frameCounter = 0
         while True:
-            message = self.asciiQueue.get()
-            if message == Message.QUIT:
-                break
             if FPS:
                 start = time.time()
+            try:
+                message = self.asciiQueue.get_nowait()
+            except Empty:
+                self.bufferFrames()
+                message = self.asciiQueue.get()
+                self.synchronizationQueue.put(message[0])
+            if message == Message.QUIT:
+                break
             timeStamp, ascii = message
             if (time.time() - self.timeZero) < timeStamp:
                 time.sleep(max(timeStamp - (time.time()-self.timeZero), 0))
             print(Cursor.POS(1,1) + ascii)
-            if frameCounter%SYNNCHRONIZE_EVERY == 0:
+            if frameCounter%self.averageFPS == 0:
                 self.synchronizationQueue.put(timeStamp)
             if FPS:
                 stop = time.time()
@@ -86,6 +99,7 @@ class Player:
         vStream.codec_context.skip_frame = "DEFAULT"
         vStream.thread_type = 'AUTO'
         timeBase = vStream.time_base
+        self.averageFPS = vStream.average_rate
 
         aStream = video.streams.audio[0]
         self.sample_rate = aStream.sample_rate
@@ -138,6 +152,8 @@ class Player:
                     videoTimeStamp = self.synchronizationQueue.get_nowait()
                 except Empty:
                     videoTimeStamp = timeStamp
+                if videoTimeStamp == Message.BUFFER:
+                    videoTimeStamp = self.synchronizationQueue.get()
                 correctionTime += timeStamp-videoTimeStamp
                 if (time.time() - self.timeZero - correctionTime) < timeStamp:
                     time.sleep(max(timeStamp - (time.time() - self.timeZero - correctionTime), 0))

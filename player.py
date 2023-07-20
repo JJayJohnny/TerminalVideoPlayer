@@ -27,9 +27,8 @@ class Player:
         decoder = Thread(target=self.decode, args=(src,))
         decoder.start()
 
-        transformers = [Thread(target=self.transform) for i in range(1)]
-        for transformer in transformers:
-            transformer.start()
+        transformer = Thread(target=self.transform)
+        transformer.start()
 
         displayer = Thread(target=self.display)
         displayer.start()
@@ -38,8 +37,7 @@ class Player:
         audioPlayer.start()
 
         decoder.join()
-        for transformer in transformers:
-            transformer.join()
+        transformer.join()
         displayer.join()
         audioPlayer.join()
 

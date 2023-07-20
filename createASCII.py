@@ -29,11 +29,6 @@ def createASCII(image: Image, columns: int = 100, rows: int = 50) -> str:
     grayScale = image.convert("L")
     ascii = []
 
-    # with ThreadPoolExecutor(10) as executor:
-    #      futures = [executor.submit(processLine, image, grayScale, width, h) for h in range(height)]
-    #      for future in futures:
-    #           line, h = future.result()
-    #           ascii[h] = line
     for h in range(height):
         line = ''
         for w in range(width):
@@ -53,14 +48,3 @@ def findColor(pixel):
 
 def distance(c1, c2):
     return math.sqrt((c1[0] - c2[0])**2 + (c1[1] - c2[1])**2 + (c1[2] - c2[2])**2)
-
-def processLine(image, grayScale, width, h):
-    line = ''
-    for w in range(width):
-            brightness = grayScale.getpixel((w, h)) / 255.0
-            pixel = image.getpixel((w, h))
-            char = CHARS_BY_DENSITY[int(brightness*(len(CHARS_BY_DENSITY)-1))]
-            color = findColor(pixel)
-            final = color + char + char
-            line += final
-    return line, h

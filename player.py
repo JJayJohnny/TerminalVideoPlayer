@@ -26,6 +26,10 @@ class Player:
         self.synchronizationQueue = Queue()
         self.messagesToDecoder = Queue()
 
+        termSize = shutil.get_terminal_size()
+        self.width = termSize.columns
+        self.height = termSize.lines
+
     def play(self, src: str):
         decoder = Thread(target=self.decode, args=(src,))
         decoder.start()
@@ -54,8 +58,7 @@ class Player:
                 self.asciiQueue.put(message)
                 break
             timeStamp, imageData = message
-            termSize = shutil.get_terminal_size()
-            ascii = createASCII(imageData, termSize.columns, termSize.lines-1)
+            ascii = createASCII(imageData, self.width, self.height-1)
             self.asciiQueue.put((timeStamp, ascii))
 
     def bufferFrames(self):

@@ -1,0 +1,7 @@
+av==10.0.0
+cffi==1.15.1
+colorama==0.4.6
+numpy==1.25.1
+Pillow==10.0.0
+pycparser==2.21
+sounddevice==0.4.6

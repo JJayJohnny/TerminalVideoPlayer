@@ -24,6 +24,7 @@ class Player:
         self.asciiQueue = Queue()
         self.decodedAudio = Queue()
         self.synchronizationQueue = Queue()
+        self.messagesToDecoder = Queue()
 
     def play(self, src: str):
         decoder = Thread(target=self.decode, args=(src,))
@@ -37,6 +38,8 @@ class Player:
 
         audioPlayer = Thread(target=self.playAudio)
         audioPlayer.start()
+
+        self.messagesToDecoder.put(Message.START)
 
         decoder.join()
         transformer.join()
@@ -107,6 +110,11 @@ class Player:
         self.channels = aStream.channels
         self.frameSize = aStream.frame_size
         audioTimeBase = aStream.time_base
+
+        if self.messagesToDecoder.get() != Message.START:
+            self.frameQueue.put(Message.QUIT)
+            self.decodedAudio.put(Message.QUIT)
+            return
 
         self.timeZero = time.time()
         self.asciiQueue.put(Message.START)

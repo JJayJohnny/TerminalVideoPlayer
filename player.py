@@ -16,15 +16,16 @@ SECONDS_TO_BUFFER = 5
 class Message(Enum):
     START = 'START'
     QUIT = 'QUIT'
-    BUFFER = 'BUFFER'
+    WAIT = 'WAIT'
 
 class Player:
-    def __init__(self, src: str):
+    def __init__(self):
         self.frameQueue = Queue()
         self.asciiQueue = Queue()
         self.decodedAudio = Queue()
         self.synchronizationQueue = Queue()
 
+    def play(self, src: str):
         decoder = Thread(target=self.decode, args=(src,))
         decoder.start()
 
@@ -55,7 +56,7 @@ class Player:
             self.asciiQueue.put((timeStamp, ascii))
 
     def bufferFrames(self):
-        self.synchronizationQueue.put(Message.BUFFER)
+        self.synchronizationQueue.put(Message.WAIT)
         bufferStart = time.time()
         while self.asciiQueue.qsize() < self.averageFPS*SECONDS_TO_BUFFER and time.time()-bufferStart < SECONDS_TO_BUFFER:
             time.sleep(0.1)
@@ -152,7 +153,7 @@ class Player:
                     videoTimeStamp = self.synchronizationQueue.get_nowait()
                 except Empty:
                     videoTimeStamp = timeStamp
-                if videoTimeStamp == Message.BUFFER:
+                if videoTimeStamp == Message.WAIT:
                     videoTimeStamp = self.synchronizationQueue.get()
                 correctionTime += timeStamp-videoTimeStamp
                 if (time.time() - self.timeZero - correctionTime) < timeStamp:

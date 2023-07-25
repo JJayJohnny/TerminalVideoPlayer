@@ -18,6 +18,9 @@ class Message(Enum):
     QUIT = 'QUIT'
     WAIT = 'WAIT'
 
+def cls():
+    os.system('cls' if os.name=='nt' else 'clear')
+
 class Player:
     def __init__(self):
         self.frameQueue = Queue()
@@ -73,7 +76,7 @@ class Player:
             return
         
         stop = time.time()
-        os.system('clear')
+        cls()
         frameCounter = 0
         while True:
             if FPS:

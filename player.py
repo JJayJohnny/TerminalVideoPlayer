@@ -26,7 +26,6 @@ class Player:
         self.frameQueue = Queue()
         self.asciiQueue = Queue()
         self.decodedAudio = Queue()
-        self.synchronizationQueue = Queue()
         self.messagesToDecoder = Queue()
 
         termSize = shutil.get_terminal_size()
@@ -64,42 +63,27 @@ class Player:
             ascii = createASCII(imageData, self.width, self.height-1)
             self.asciiQueue.put((timeStamp, ascii))
 
-    def bufferFrames(self):
-        self.synchronizationQueue.put(Message.WAIT)
-        bufferStart = time.time()
-        while self.asciiQueue.qsize() < self.averageFPS*SECONDS_TO_BUFFER and time.time()-bufferStart < SECONDS_TO_BUFFER:
-            time.sleep(0.1)
-        self.timeZero += time.time() - bufferStart
-
     def display(self):
         if self.asciiQueue.get() != Message.START:
             return
         
         stop = time.time()
+        printTime=0
         cls()
-        frameCounter = 0
-        while True:
-            if FPS:
-                start = time.time()
-            try:
-                message = self.asciiQueue.get_nowait()
-            except Empty:
-                self.bufferFrames()
-                message = self.asciiQueue.get()
-                self.synchronizationQueue.put(message[0])
+        while True:     
+            message = self.asciiQueue.get()
             if message == Message.QUIT:
                 break
             timeStamp, ascii = message
+            # if (time.time() - self.timeZero) < timeStamp:
+            #     time.sleep(max(timeStamp - (time.time()-self.timeZero) - printTime, 0))
+            start = time.time()
+            print(Cursor.POS(1,1) + ascii, flush=True)
+            # print(Cursor.POS(1,1) + f"Frame time: {stop-start} FPS: {int(1.0/(stop-start))}")
+            print(Cursor.POS(1,2) + str(round(timeStamp, 2)), flush=True)
+            printTime = time.time()-start
             if (time.time() - self.timeZero) < timeStamp:
                 time.sleep(max(timeStamp - (time.time()-self.timeZero), 0))
-            print(Cursor.POS(1,1) + ascii)
-            if frameCounter%self.averageFPS == 0:
-                self.synchronizationQueue.put(timeStamp)
-            if FPS:
-                stop = time.time()
-            print(Cursor.POS(1,1) + f"Frame time: {stop-start} FPS: {int(1.0/(stop-start))}")
-            print(Cursor.POS(1,2) + str(round(timeStamp, 2)))
-            frameCounter += 1
 
 
     def decode(self, src: str):
@@ -125,7 +109,7 @@ class Player:
         self.timeZero = time.time()
         self.asciiQueue.put(Message.START)
         self.decodedAudio.put(Message.START)
-                   
+
         for packet in video.demux(vStream, aStream):
             if packet.dts is None:
                 continue
@@ -163,13 +147,7 @@ class Player:
                 if message == Message.QUIT:
                     break
                 timeStamp, audioFrame = message
-                try:
-                    videoTimeStamp = self.synchronizationQueue.get_nowait()
-                except Empty:
-                    videoTimeStamp = timeStamp
-                if videoTimeStamp == Message.WAIT:
-                    videoTimeStamp = self.synchronizationQueue.get()
-                correctionTime += timeStamp-videoTimeStamp
-                if (time.time() - self.timeZero - correctionTime) < timeStamp:
-                    time.sleep(max(timeStamp - (time.time() - self.timeZero - correctionTime), 0))
+                
+                if (time.time() - self.timeZero) < timeStamp:
+                    time.sleep(max(timeStamp - (time.time() - self.timeZero), 0))
                 audioQueue.put_nowait(audioFrame)

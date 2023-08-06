@@ -67,8 +67,6 @@ class Player:
         if self.asciiQueue.get() != Message.START:
             return
         
-        stop = time.time()
-        printTime=0
         cls()
         while True:     
             message = self.asciiQueue.get()
@@ -77,13 +75,14 @@ class Player:
             timeStamp, ascii = message
             # if (time.time() - self.timeZero) < timeStamp:
             #     time.sleep(max(timeStamp - (time.time()-self.timeZero) - printTime, 0))
-            start = time.time()
             print(Cursor.POS(1,1) + ascii, flush=True)
             # print(Cursor.POS(1,1) + f"Frame time: {stop-start} FPS: {int(1.0/(stop-start))}")
+            print(Cursor.POS(1,1) + f"QUEUE {self.asciiQueue.qsize()}")
             print(Cursor.POS(1,2) + str(round(timeStamp, 2)), flush=True)
-            printTime = time.time()-start
-            if (time.time() - self.timeZero) < timeStamp:
+            if (time.time() - self.timeZero) <= timeStamp:
                 time.sleep(max(timeStamp - (time.time()-self.timeZero), 0))
+            else:
+                self.timeZero += (time.time() - self.timeZero) - timeStamp
 
 
     def decode(self, src: str):

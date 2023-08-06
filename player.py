@@ -31,6 +31,7 @@ class Player:
         termSize = shutil.get_terminal_size()
         self.width = termSize.columns
         self.height = termSize.lines
+        self.playing = False
 
     def play(self, src: str):
         decoder = Thread(target=self.decode, args=(src,))
@@ -46,6 +47,7 @@ class Player:
         audioPlayer.start()
 
         self.messagesToDecoder.put(Message.START)
+        self.playing = True
 
         decoder.join()
         transformer.join()
@@ -68,7 +70,9 @@ class Player:
             return
         
         cls()
-        while True:     
+        while True:
+            while self.playing == False:
+                time.sleep(0.5)     
             message = self.asciiQueue.get()
             if message == Message.QUIT:
                 break
@@ -112,6 +116,12 @@ class Player:
         for packet in video.demux(vStream, aStream):
             if packet.dts is None:
                 continue
+            try:
+                message = self.messagesToDecoder.get_nowait()
+                if message == Message.QUIT:
+                    return
+            except Empty:
+                pass
 
             type = packet.stream.type
             for frame in packet.decode():
@@ -142,6 +152,8 @@ class Player:
         
         with sd.OutputStream(samplerate=self.sample_rate, channels=self.channels, callback=callback, blocksize=self.frameSize):
             while True:
+                while self.playing == False:
+                    time.sleep(0.5)
                 message = self.decodedAudio.get()
                 if message == Message.QUIT:
                     break
@@ -150,3 +162,17 @@ class Player:
                 if (time.time() - self.timeZero) < timeStamp:
                     time.sleep(max(timeStamp - (time.time() - self.timeZero), 0))
                 audioQueue.put_nowait(audioFrame)
+
+    def pause(self):
+        self.playing = not self.playing
+
+    def quit(self):
+        self.playing = True
+        self.messagesToDecoder.put(Message.QUIT)
+        self.asciiQueue = Queue()
+        self.asciiQueue.put(Message.QUIT)
+        self.frameQueue = Queue()
+        self.frameQueue.put(Message.QUIT)
+        self.decodedAudio = Queue()
+        self.decodedAudio.put(Message.QUIT)
+

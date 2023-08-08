@@ -4,7 +4,9 @@ This is a simple console application that plays video files. It uses characters 
 Here's a short showcase:
 
 
-https://github.com/JJayJohnny/TerminalVideoPlayer/assets/43695474/e9becde5-4f45-4129-8765-00d3a10a2fec
+https://github.com/JJayJohnny/TerminalVideoPlayer/assets/43695474/724178d9-e994-4ba6-b8bf-eded117ef5ad
+
+
 
 ## Controls
 For now the only controls are:

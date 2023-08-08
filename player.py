@@ -91,19 +91,33 @@ class Player:
 
 
     def decode(self, src: str):
-        video = av.open(src)
+        try:
+            video = av.open(src)
+        except av.AVError:
+            print("Invalid file")
+            self.frameQueue.put(Message.QUIT)
+            self.decodedAudio.put(Message.QUIT)
+            return
 
-        vStream = video.streams.video[0]
-        vStream.codec_context.skip_frame = "DEFAULT"
-        vStream.thread_type = 'AUTO'
-        timeBase = vStream.time_base
-        self.averageFPS = vStream.average_rate
+        try: 
+            vStream = video.streams.video[0]
+            vStream.codec_context.skip_frame = "DEFAULT"
+            vStream.thread_type = 'AUTO'
+            timeBase = vStream.time_base
+            self.averageFPS = vStream.average_rate
+        except IndexError: #no video track
+            vStream = None
+            self.frameQueue.put(Message.QUIT)
 
-        aStream = video.streams.audio[0]
-        self.sample_rate = aStream.sample_rate
-        self.channels = aStream.channels
-        self.frameSize = aStream.frame_size
-        audioTimeBase = aStream.time_base
+        try:
+            aStream = video.streams.audio[0]
+            self.sample_rate = aStream.sample_rate
+            self.channels = aStream.channels
+            self.frameSize = aStream.frame_size
+            audioTimeBase = aStream.time_base
+        except IndexError: #no audio track
+            aStream = None
+            self.decodedAudio.put(Message.QUIT)
 
         if self.messagesToDecoder.get() != Message.START:
             self.frameQueue.put(Message.QUIT)

@@ -10,7 +10,9 @@ import numpy as np
 import sounddevice as sd
 from enum import Enum
 
-FPS = True
+MIN_HEIGHT = 4
+MIN_WIDTH = 4
+
 SECONDS_TO_BUFFER = 5
 
 class Message(Enum):
@@ -30,10 +32,12 @@ class Player:
 
         termSize = shutil.get_terminal_size()
         self.width = termSize.columns
-        self.height = termSize.lines
+        self.height = termSize.lines-1
         self.playing = False
 
     def play(self, src: str):
+        if self.height < MIN_HEIGHT or self.width < MIN_WIDTH:
+            return
         decoder = Thread(target=self.decode, args=(src,))
         decoder.start()
 
@@ -62,7 +66,7 @@ class Player:
                 self.asciiQueue.put(message)
                 break
             timeStamp, imageData = message
-            ascii = createASCII(imageData, self.width, self.height-1)
+            ascii = createASCII(imageData, self.width-1, self.height-1)
             self.asciiQueue.put((timeStamp, ascii))
 
     def display(self):
@@ -70,6 +74,7 @@ class Player:
             return
         
         cls()
+        self.printTopBar()
         while True:
             while self.playing == False:
                 time.sleep(0.5)     
@@ -77,12 +82,8 @@ class Player:
             if message == Message.QUIT:
                 break
             timeStamp, ascii = message
-            # if (time.time() - self.timeZero) < timeStamp:
-            #     time.sleep(max(timeStamp - (time.time()-self.timeZero) - printTime, 0))
-            print(Cursor.POS(1,1) + ascii, flush=True)
-            # print(Cursor.POS(1,1) + f"Frame time: {stop-start} FPS: {int(1.0/(stop-start))}")
-            print(Cursor.POS(1,1) + f"QUEUE {self.asciiQueue.qsize()}")
-            print(Cursor.POS(1,2) + str(round(timeStamp, 2)), flush=True)
+            print(Cursor.POS(1,2) + ascii, flush=True)
+            print(Cursor.POS(1,2) + str(int(timeStamp)), flush=True)
             if (time.time() - self.timeZero) <= timeStamp:
                 time.sleep(max(timeStamp - (time.time()-self.timeZero), 0))
             else:
@@ -165,6 +166,7 @@ class Player:
 
     def pause(self):
         self.playing = not self.playing
+        self.printTopBar()
 
     def quit(self):
         self.playing = True
@@ -175,4 +177,13 @@ class Player:
         self.frameQueue.put(Message.QUIT)
         self.decodedAudio = Queue()
         self.decodedAudio.put(Message.QUIT)
+    
+    def printTopBar(self):
+        controls = "ESC - quit | Space - pause"
+        if self.width >= len(controls):
+            print(Cursor.POS(1,1)+ controls)
+        if not self.playing:
+            print(Cursor.POS(self.width-7, 1) + "PAUSED")
+        else:
+            print(Cursor.POS(self.width-7, 1) + "      ")
 

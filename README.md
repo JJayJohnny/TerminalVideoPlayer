@@ -26,4 +26,4 @@ To start playing a video run:
 python main.py pathToYourVideoFile
 ```
 ## License
-Terminal Video Player is released under the MIT License.
+Terminal Video Player is released under the [MIT License](LICENSE.txt).
